@@ -1,0 +1,66 @@
+//declaro la sintaxis con la que vo a trabaar
+syntax = "proto3";
+
+//sección de paquetes (nombrará los paquetes autogenerados)
+package employees;
+option go_package = "grpc-node/basic/pb/employees";
+option csharp_namespace = "Employees";
+
+//Creo mi entidad  (tipando las propiedades)
+message Employee{
+    int32 id = 1;
+    int32 badgeNumber= 2;
+    string firstName = 3;
+    string lastName = 4;
+    float vacationAccrualRate = 5;
+    float vacationAccrued = 6;
+}
+
+//Se pueden crear tipos de datosparticulares y ser asociados mediante contenedores
+
+//Defino los servicios (lo que va a ser el puente entre el servidor y el cliente)
+//Como va a generar una interfaz le coloco I al principio (por convención)
+service IEmployeeService{
+    rpc GetByBadgeNumber(GetByBadgeNumberRequest) returns (EmployeeResponse);
+    //getByBadgeNumberRequest y EmployeeResponse son dos tipos de datos que todavía no he construido
+    //es un servicio unario porque a una petición me devuelve un solo response
+
+    rpc Save(EmployeeRequest) returns (EmployeeResponse);
+
+    rpc getAll(GetAllRequest) returns (stream EmployeeResponse); //devuelve un stream, significa que es un servicio de streaming dlldo del servidor
+                                                                //cuando el servidor considere que ha enviado todos los datos cerrará la conexión
+                                                                //me enviará el flujo de datos de tods los EmployeeResponse, tantos  como tenga en  mi 
+
+    rpc AddPhoto (stream AddPhotoRequest) returns (AddPhotoResponse);
+    //streaming del lado del ciente; el cliente va a enviar datos hasta que considere que ha enviado todos los datos y cierre la conexión
+    //Cuando cierre la  conexión el servidor va a entender que ha terminado y va a emitir la Response 
+    
+    rpc SaveAll (stream EmployeeRequest) returns (stream EmployeeResponse);
+    //tendrmos streaming del lado del servidor  y del cliente
+    //Cualquiera de los dos puede cerrar la conexión y una vez se cierra el servidor procesa y devuelve la Response
+    //El servidor también puede devolver una Response a cada petición, cada 10 peticiones, etc
+   //Puedo enviar datos y recibirlos de fora arbitraria                                      
+ }
+
+
+message GetByBadgeNumberRequest{
+    int32 badgeNumber = 1; //contiene un entero con el nombre de atributo badgeNumber que nos va a permitir recibir el número de badge de cualquier empleado
+}
+
+message EmployeeResponse{
+    Employee employee = 1; //agrupa la abstracción de Employee
+}
+
+message EmployeeRequest{
+    Employee employee = 1;
+}
+
+message AddPhotoRequest{
+    bytes data = 1; //vamos  a eeenviar bytes de una foto en varios paquetes hasta enviar toda la foto 
+}
+
+message AddPhotoResponse {
+    bool isOk = 1;
+}
+
+message GetAllRequest{}

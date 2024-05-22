@@ -1,0 +1,19 @@
+{
+  "name": "servergrpc",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "proto:gen": "sh scripts/proto-gen.sh"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@grpc/grpc-js": "^1.10.8",
+    "@grpc/proto-loader": "^0.7.13",
+    "@types/google-protobuf": "^3.15.12",
+    "grpc_tools_node_protoc_ts": "^5.3.3",
+    "ts-node": "^10.9.2"
+  }
+}
