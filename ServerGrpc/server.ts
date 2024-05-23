@@ -23,19 +23,17 @@ const grpcObj= (grpc.loadPackageDefinition(packageDefinition) as unknown) as Pro
 
 //EN el main hago todos los llamados a las configuraciones particulares
 function main(){
-    //podemos agregar tantos servicios como queramos divididos por entidades, ahora solo tenemos una
     const server = getServer()
-    const serverCredentials= SSLService.getServerCredentials()//server sin autenticación
+    //podemos agregar tantos servicios como queramos divididos por entidades, ahora solo tenemos una
+    const serverCredentials= grpc.ServerCredentials.createInsecure()//server sin autenticación
 
-    //usamos bindAsync para conectar el server al localhost:puerto, el segundo parametro  es el tipo de auth (aqui sin auth)
-    //el tercer parámetro es un callback que me devuelve el error o el puerto donde se pudo conectar
-    server.bindAsync(`0.0.0.0:${PORT}`, serverCredentials, (err, port)=>{
-            if(err){
-                console.log(err)
-                return
-            }
-            console.log(`Conectado en el puerto ${port}`)
-            //server.start() --->deprecated!
+    server.bindAsync(`0.0.0.0:${PORT }`, serverCredentials, (err,port)=>{
+        if(err){
+            console.error(err)
+            return
+        }
+        console.log(`Server running at port ${port}`)
+        
     })
 }
 

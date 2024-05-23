@@ -27,9 +27,9 @@ service IEmployeeService{
 
     rpc Save(EmployeeRequest) returns (EmployeeResponse);
 
-    rpc getAll(GetAllRequest) returns (stream EmployeeResponse); //devuelve un stream, significa que es un servicio de streaming dlldo del servidor
+    rpc getAll(GetAllRequest) returns (stream EmployeeResponse); //devuelve un stream, significa que es un servicio de streaming (flujo de datos) del lado del servidor
                                                                 //cuando el servidor considere que ha enviado todos los datos cerrará la conexión
-                                                                //me enviará el flujo de datos de tods los EmployeeResponse, tantos  como tenga en  mi 
+                                                                //me enviará el flujo de datos de todos los EmployeeResponse, tantos  como tenga en  mi 
 
     rpc AddPhoto (stream AddPhotoRequest) returns (AddPhotoResponse);
     //streaming del lado del ciente; el cliente va a enviar datos hasta que considere que ha enviado todos los datos y cierre la conexión
@@ -56,7 +56,7 @@ message EmployeeRequest{
 }
 
 message AddPhotoRequest{
-    bytes data = 1; //vamos  a eeenviar bytes de una foto en varios paquetes hasta enviar toda la foto 
+    bytes data = 1; //vamos a enviar bytes de una foto en varios paquetes hasta enviar toda la foto 
 }
 
 message AddPhotoResponse {

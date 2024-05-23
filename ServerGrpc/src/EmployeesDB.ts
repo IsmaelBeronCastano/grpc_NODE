@@ -2,7 +2,7 @@ import {Employee} from '../proto/employees/Employee'
 
 export class EmployeesDB{
 
-    private employees: Employee [] =[]
+    private employees: Employee[] =[]
 
     constructor(){
         this.employees = [
@@ -38,9 +38,9 @@ export class EmployeesDB{
         return this.employees
     }
 
-    public saveEmployee(employee: Employee): Employee{
+    public saveEmployee(employee: Employee){
         this.employees.push(employee)
-        return employee
+        
     }
 
     public getEmployeeBybadgeNumber(badgeNumber: number): Employee {

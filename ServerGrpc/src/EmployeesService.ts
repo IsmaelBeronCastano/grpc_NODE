@@ -35,11 +35,11 @@ const  EmployeesService : IEmployeeServiceHandlers={
     },
 
     GetByBadgeNumber: function (call: ServerUnaryCall<GetByBadgeNumberRequest__Output, EmployeeResponse>, callback: sendUnaryData<EmployeeResponse>): void {
-        const req = call.request as GetByBadgeNumberRequest //lo casteo al objeto que necesito trabajar
+        const request = call.request as GetByBadgeNumberRequest //lo casteo al objeto que necesito trabajar
         //si reviso os archivos generados, GetByBadgNumberReuest.ts tiene un badgeNumber
         
-        if(req.badgeNumber){
-            const badgeNumber = req.badgeNumber
+        if(request.badgeNumber){
+            const badgeNumber = request.badgeNumber
             const employee = _employeesDB.getEmployeeBybadgeNumber(badgeNumber) 
                 callback(null, {employee}) 
         }
@@ -54,7 +54,20 @@ const  EmployeesService : IEmployeeServiceHandlers={
     },
 
     Save: function (call: ServerUnaryCall<EmployeeRequest__Output, EmployeeResponse>, callback: sendUnaryData<EmployeeResponse>): void {
-        throw new Error("Function not implemented.");
+        const request = call.request as EmployeeRequest
+        
+        
+
+        if(request.employee){
+            const employee = request.employee
+            _employeesDB.saveEmployee(employee)
+            callback(null, {employee})
+        }
+
+        callback({
+            name: "employee is missing",
+            message:"no employee to save"
+        }, null)
     },
 
     SaveAll: function (call: ServerDuplexStream<EmployeeRequest__Output, EmployeeResponse>): void {
@@ -70,7 +83,7 @@ const  EmployeesService : IEmployeeServiceHandlers={
         })
 
         call.on('end', ()=>{
-            console.log(`${count} emploees saved`)
+            console.log(`${count} employees saved`)
             call.end() //siempre cerrar la conexión!!!
         })
     },
