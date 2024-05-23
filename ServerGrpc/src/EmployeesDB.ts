@@ -43,7 +43,7 @@ export class EmployeesDB{
         return employee
     }
 
-    public getEmployeeBybadgeNumber(badgeNumber: number): Employee | undefined{
+    public getEmployeeBybadgeNumber(badgeNumber: number): Employee {
         const employee = this.employees.find(employee => employee.badgeNumber === badgeNumber)
         if(!employee){
             throw new Error('Employee not found')

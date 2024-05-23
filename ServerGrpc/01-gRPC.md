@@ -422,4 +422,77 @@ main()
 - Usamos POSTMAN para usarlo como cliente
 - import a  proto  file e importo employees com una nueva API
 - Ahora puedo seleccionar un método
-- 
+- Le añado badgeNumber al mensaje
+-------
+
+## Mensajes - Server Streaming
+
+- Vamos con obtener  todos los empleados
+
+~~~js
+ getAll: function (call: ServerWritableStream<GetAllRequest__Output, EmployeeResponse>): void {
+        throw new Error("Function not implemented.");
+    }
+~~~
+
+- Tenemos un servicio grpc del tipo streaming del lado del servidor que recibe como  objeto de petición el GetAllReuest y devuelve una EmployeeResponse (no un arreglo)
+- Cada vez que mandemos un mensaje a través del streaming mandaremos un empleado que el cliente va a capturar en su conjunto como un arreglo
+- call tiene unmetodo write que recibe un chunk de respuesta (de tipo EmployeeResponse)
+- Hay que terminar la conexión
+
+~~~js
+getAll: function (call: ServerWritableStream<GetAllRequest__Output, EmployeeResponse>): void {
+    const employees  = _employeesDB.getEmployees()
+    employees.forEach(employee=>{
+        call.write({employee})
+    } )
+
+    call.end()
+    
+}
+~~~
+
+- En la respuesta observo que cada empleado es un envío por parte del servidor,  en lugar de venir tdo en un arreglo
+- La conexión durará hasta que el servidor considere que ha enviado toda la data
+------
+
+## Mensajes - Client Streaming
+
+- Subiremos una foto con AddPhoto
+
+~~~js
+AddPhoto: function (call: ServerReadableStream<AddPhotoRequest__Output, AddPhotoResponse>, callback: sendUnaryData<AddPhotoResponse>): void {
+    throw new Error("Function not implemented.");
+}
+~~~
+
+- El servidor está recibiendo como parámetro de call un stream de lectura ServerReadableStream, por el que se nos va a enviar un chunk de información, en algún momento se va a detener ese envío de tipo AddPhotoRequest y devolver un dato unario de tipo AddPhotoResponse en el callback
+- Por eso es streaming del lado del cliente, porque es este quien envía información hasta un momento determinado
+-EmployeesService.ts
+
+~~~js
+AddPhoto: function (call: ServerReadableStream<AddPhotoRequest__Output, AddPhotoResponse>, callback: sendUnaryData<AddPhotoResponse>): void {
+        //guardamos el stream en un archivo
+        const writableStream  = fs.createWriteStream('upload_photo.png')
+
+        //lo que hareos cada vez que lleguen datos
+        call.on('data', (request:AddPhotoRequest)=>{ //si busco la interfaz de AddPhotoRequest contine data de tipo Buffer
+
+            writableStream.write(request.data)
+        })
+
+        //lo que haremos cuando terminen de llegar esos datos
+        call.on('end', ()=>{
+            //guardará todos los bytes dentro de la ruta upload_photo
+            writableStream.end()
+            console.log("File uploaded successfully!!")
+        })
+
+    }
+~~~
+
+- Para el streaming del lado del cliente para una foto no puedo hacerlo con POSTMAN
+- Crearé un cliente para ello con un script
+------
+
+## Mensajes - Bidireccional Streaming

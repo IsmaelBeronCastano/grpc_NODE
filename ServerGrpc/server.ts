@@ -18,7 +18,7 @@ const packageDefinition = protoLoader.loadSync(path.resolve(__dirname, PROTO_FIL
 //para ello importamos @grpc/grpc-js
 //lo  tipo como unknown para poderlo castear con el tipo de la interface generada desde employees.proto volcada en employees.ts
 const grpcObj= (grpc.loadPackageDefinition(packageDefinition) as unknown) as ProtoGrpcType //ProtoGrpcType es una interface que tiene los tipos 
-                                                                                           //de todos los mensajes
+                                                                                           //de todos los mensajes escritas en proto
 
 //EN el main hago todos los llamados a las configuraciones particulares
 function main(){
@@ -44,7 +44,7 @@ function getServer(){
     
     //este método recibe la definicion de un servicio como primer parámetro
     //y la implementación de ese servicio como segundo parámetro (EmployeesService.ts)
-    //Si exploro employees.ts observo la definición delservicio en service: _employees_IEmployeeServiceDefinition
+    //Si exploro employees.ts observo la definición del servicio en service: _employees_IEmployeeServiceDefinition
     //En grpcObj tengo todo
     server.addService(grpcObj.employees.IEmployeeService.service, EmployeesService)
 
