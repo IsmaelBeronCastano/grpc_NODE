@@ -423,6 +423,7 @@ main()
 - import a  proto  file e importo employees com una nueva API
 - Ahora puedo seleccionar un método
 - Le añado badgeNumber al mensaje
+- *NOTA*: algo en el código de este servicio no está bien. Los servicios posteriores funcionan pero este no
 -------
 
 ## Mensajes - Server Streaming
@@ -496,3 +497,138 @@ AddPhoto: function (call: ServerReadableStream<AddPhotoRequest__Output, AddPhoto
 ------
 
 ## Mensajes - Bidireccional Streaming
+
+- Vamos a implmentar un servicio full duplex bidireccional de streaming
+- Usaremos SaveAll ara el ejemplo, dónde el cliente va a ir enviando employees y el server irá devolviendo información
+
+~~~js
+SaveAll: function (call: ServerDuplexStream<EmployeeRequest__Output, EmployeeResponse>): void {
+    throw new Error("Function not implemented.");
+}
+~~~
+
+- Tenemos un ServerDuplexStream, nos indica que tenemos un canalduplex de  streaming donde el cliente y el servidor van a poder enviar información de tipo EmployeeRequest con una respuesta de tipo EmployeeResponse
+- La estrategia es muy similar a la de AddPhoto
+
+~~~js
+ SaveAll: function (call: ServerDuplexStream<EmployeeRequest__Output, EmployeeResponse>): void {
+        let count= 0
+        
+        call.on('data', (request: EmployeeRequest)=>{
+            if(request.employee){
+                const employee = request.employee
+                _employeesDB.saveEmployee(employee)
+                count ++
+                call.write({employee})
+            }
+        })
+
+        call.on('end', ()=>{
+            console.log(`${count} employees saved`)
+            call.end() //siempre cerrar la conexión!!!
+        })
+    },
+~~~
+
+- Si ahora voy a POSTMAN y edoy a invoke  ABRE EL  STREAMING pero no aparece nada en consola
+- Esto solo abrió la conexión. Debo darle a SEND para enviar la data y acabar con END STREAMING
+- El cliente puede enviar tantos datos como quiera y el servidor enviar una respuesta cuando lo considere necesario
+- No necesariamente debe enviar una respuesta a cada petición, puedo enviar un video en varios chunks y cuando tenga un 10% enviar una  notificación  
+------
+
+## Establecer conexión segura
+
+- Creo  la carpeta ssl y dentro un archivo ssl.sh con este código
+
+~~~sh
+#!/bin/bash
+
+rm *.pem
+rm *.srl
+rm *.cnf
+rm *.crt
+rm *.key
+rm *.csr
+
+# 1. Generate CA's private key and self-signed certificate
+openssl req -x509 -newkey rsa:4096 -days 365 -nodes -keyout ca-key.pem -out ca-cert.pem -subj "/C=FR/ST=Occitanie/L=Toulouse/O=Test Org/OU=Test/CN=*.test/emailAddress=test@gmail.com"
+
+echo "CA's self-signed certificate"
+openssl x509 -in ca-cert.pem -noout -text
+
+# 2. Generate web server's private key and certificate signing request (CSR)
+openssl req -newkey rsa:4096 -nodes -keyout server-key.pem -out server-req.pem -subj "/C=FR/ST=Ile de France/L=Paris/O=Server TLS/OU=Server/CN=*.tls/emailAddress=tls@gmail.com"
+
+# Remember that when we develop on localhost, It’s important to add the IP:0.0.0.0 as an Subject Alternative Name (SAN) extension to the certificate.
+echo "subjectAltName=DNS:*.tls,DNS:localhost,IP:0.0.0.0" > server-ext.cnf
+# Or you can use localhost DNS and grpc.ssl_target_name_override variable
+# echo "subjectAltName=DNS:localhost" > server-ext.cnf
+
+# 3. Use CA's private key to sign web server's CSR and get back the signed certificate
+openssl x509 -req -in server-req.pem -days 60 -CA ca-cert.pem -CAkey ca-key.pem -CAcreateserial -out server-cert.pem -extfile server-ext.cnf
+
+echo "Server's signed certificate"
+openssl x509 -in server-cert.pem -noout -text
+
+# 4. Generate client's private key and certificate signing request (CSR)
+openssl req -newkey rsa:4096 -nodes -keyout client-key.pem -out client-req.pem -subj "/C=FR/ST=Alsace/L=Strasbourg/O=PC Client/OU=Computer/CN=*.client.com/emailAddress=client@gmail.com"
+
+# Remember that when we develop on localhost, It’s important to add the IP:0.0.0.0 as an Subject Alternative Name (SAN) extension to the certificate.
+echo "subjectAltName=DNS:*.client.com,IP:0.0.0.0" > client-ext.cnf
+
+# 5. Use CA's private key to sign client's CSR and get back the signed certificate
+openssl x509 -req -in client-req.pem -days 60 -CA ca-cert.pem -CAkey ca-key.pem -CAcreateserial -out client-cert.pem -extfile client-ext.cnf
+
+echo "Client's signed certificate"
+openssl x509 -in client-cert.pem -noout -text
+~~~
+
+- Nos generarálos ceryificados que necesitamos
+- Esto solo es útil en localhost
+- Para ejecutarlo creo el script
+
+~~~js
+"ssl:gen": "cd ssl && chmod +x ssl.sh && sh ssl.sh"
+~~~
+
+- Dentro de la carpeta ssl creo SSLService.ts en el que generaremos las credenciales de seguridad para el servidor y para el cliente
+
+~~~js
+import { ServerCredentials } from "@grpc/grpc-js";
+import *as fs from 'fs'
+import path from 'path'
+
+export class SSLService{
+    static getServerCredentials():ServerCredentials{
+        const serverCert = fs.readFileSync(path.resolve(__dirname,  '../../ssl/server-cert.pem')) //importamos  el certificado
+        const serverKey =  fs.readFileSync(path.resolve(__dirname, '../../ssl/server-key.pem'))  //importamos la clave
+
+        //el primer parámetro es el root del Buffer, lo mandamos como nulo
+        //el segundo es un diccionario de certificados y claves
+        //le  envio false como tercero para que no chequee  el certificado del cliente, eso lo haremos más adelante  
+        return ServerCredentials.createSsl(null,[{cert_chain:serverCert, private_key:serverKey}], false)
+
+
+    }
+}
+~~~
+
+- Para configurarlo en el server.ts
+
+~~~js
+function main(){
+
+    const server = getServer()
+    const serverCredentials= SSLService.getServerCredentials()
+    server.bindAsync(`0.0.0.0:${PORT}`, serverCredentials, (err, port)=>{
+            if(err){
+                console.log(err)
+                return
+            }
+            console.log(`Conectado en el puerto ${port}`)
+           
+    })
+}
+~~~
+
+- Proximamente crearemos el cliente gRPC, aprenderemosaimplementar los métodos y crear unaconexión segura dellado del cliente 

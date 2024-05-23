@@ -1,7 +1,7 @@
 import { ServerReadableStream, sendUnaryData, ServerUnaryCall, ServerDuplexStream, ServerWritableStream } from "@grpc/grpc-js";
 import { AddPhotoRequest, AddPhotoRequest__Output } from "../proto/employees/AddPhotoRequest";
 import { AddPhotoResponse } from "../proto/employees/AddPhotoResponse";
-import { EmployeeRequest__Output } from "../proto/employees/EmployeeRequest";
+import { EmployeeRequest, EmployeeRequest__Output } from "../proto/employees/EmployeeRequest";
 import { EmployeeResponse } from "../proto/employees/EmployeeResponse";
 import { GetAllRequest__Output } from "../proto/employees/GetAllRequest";
 import { GetByBadgeNumberRequest, GetByBadgeNumberRequest__Output } from "../proto/employees/GetByBadgeNumberRequest";
@@ -37,9 +37,9 @@ const  EmployeesService : IEmployeeServiceHandlers={
     GetByBadgeNumber: function (call: ServerUnaryCall<GetByBadgeNumberRequest__Output, EmployeeResponse>, callback: sendUnaryData<EmployeeResponse>): void {
         const req = call.request as GetByBadgeNumberRequest //lo casteo al objeto que necesito trabajar
         //si reviso os archivos generados, GetByBadgNumberReuest.ts tiene un badgeNumber
-        const badgeNumber = req.badgeNumber
-
-        if(badgeNumber){
+        
+        if(req.badgeNumber){
+            const badgeNumber = req.badgeNumber
             const employee = _employeesDB.getEmployeeBybadgeNumber(badgeNumber) 
                 callback(null, {employee}) 
         }
@@ -56,8 +56,23 @@ const  EmployeesService : IEmployeeServiceHandlers={
     Save: function (call: ServerUnaryCall<EmployeeRequest__Output, EmployeeResponse>, callback: sendUnaryData<EmployeeResponse>): void {
         throw new Error("Function not implemented.");
     },
+
     SaveAll: function (call: ServerDuplexStream<EmployeeRequest__Output, EmployeeResponse>): void {
-        throw new Error("Function not implemented.");
+        let count= 0
+        
+        call.on('data', (request: EmployeeRequest)=>{
+            if(request.employee){
+                const employee = request.employee
+                _employeesDB.saveEmployee(employee)
+                count ++
+                call.write({employee})
+            }
+        })
+
+        call.on('end', ()=>{
+            console.log(`${count} emploees saved`)
+            call.end() //siempre cerrar la conexión!!!
+        })
     },
     getAll: function (call: ServerWritableStream<GetAllRequest__Output, EmployeeResponse>): void {
         const employees  = _employeesDB.getEmployees()

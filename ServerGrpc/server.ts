@@ -3,6 +3,7 @@ import * as grpc from "@grpc/grpc-js"
 import path from 'path'
 import {ProtoGrpcType} from './proto/employees'
 import {EmployeesService} from './src/EmployeesService'
+import { SSLService } from "./ssl/SSLService"
 
 const PORT = 8082
 
@@ -24,7 +25,7 @@ const grpcObj= (grpc.loadPackageDefinition(packageDefinition) as unknown) as Pro
 function main(){
     //podemos agregar tantos servicios como queramos divididos por entidades, ahora solo tenemos una
     const server = getServer()
-    const serverCredentials= grpc.ServerCredentials.createInsecure()//server sin autenticación
+    const serverCredentials= SSLService.getServerCredentials()//server sin autenticación
 
     //usamos bindAsync para conectar el server al localhost:puerto, el segundo parametro  es el tipo de auth (aqui sin auth)
     //el tercer parámetro es un callback que me devuelve el error o el puerto donde se pudo conectar

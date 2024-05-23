@@ -4,7 +4,8 @@
   "main": "index.js",
   "scripts": {
     "proto:gen": "sh scripts/proto-gen.sh",
-    "start:server":"ts-node server.ts"
+    "start:server":"ts-node server.ts",
+    "ssl:gen": "cd ssl && chmod +x ssl.sh && sh ssl.sh"
   },
   "keywords": [],
   "author": "",
