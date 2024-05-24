@@ -282,3 +282,152 @@ const getAll= ()=>{
 ~~~
 
 ## Mensajes - Client Streaming 
+
+- AddPhoto desde el cliente
+- Hago lo mismo, escribo client.AddPhoto y observo los tipos posando el cursor encima
+
+~~~js
+(method) IEmployeeServiceClient.AddPhoto(metadata: grpc.Metadata, options: grpc.CallOptions, callback: grpc.requestCallback<AddPhotoResponse__Output>): grpc.ClientWritableStream<AddPhotoRequest> 
+~~~
+
+- Observo que la response es de tipo  grpc.ClientWritableStream<AddPhotoRequest> 
+- Para implementar este métodono necesitamos nada, podemos enviar un callback vacío
+
+~~~js
+const addPhoto =()=>{
+   const stream= client.AddPhoto(()=>{})
+    //con fs vamos a crear un readstream que nospermitirá leer un png, descomponerlo en chunks y enviárselo al server 
+    const fileStream= fs.createReadStream('./badgePhoto.png')
+
+    fileStream.on('data', (chunk)=>{
+        stream.write({data: chunk})
+    })
+
+    fileStream.on('end',  ()=>{
+        stream.end()
+    })
+
+}
+~~~
+
+- Esto me crea un archivo en la raíz llamado upload_photo.png
+---
+
+## Mensajes - Bidirectional Streaming
+
+- Por cada vez que se guarde un cliente el servidor me va a devolver una respuesta
+- Alguien tiene que cerrar la conexión (el cliente o el servidor)
+- Por  la naturaleza de este método, es  elcliente quien está enviando. Cuando terminecierra el streaming
+-client.ts
+
+~~~js
+const saveAll=()=>{
+    const stream= client.saveAll() //esto crea el canal
+
+    const employeesToSave =[
+        {
+            id: 4,
+            badgeNumber: 2090,
+            firstName: 'Johnee',
+            lastName: 'Scofieldaaa',
+            vacationAccrualRate: 50,
+            vacationAccrued: 120
+        },
+        {
+            id: 5,
+            badgeNumber: 2023,
+            firstName: 'Johneet',
+            lastName: 'Scofieldaaarrr',
+            vacationAccrualRate: 50,
+            vacationAccrued: 120
+        }
+
+    ]
+
+    const employees:Employee []= []
+    stream.on('data',(response)=>{
+        employees.push(response.employee)
+        console.log('employee saved!')
+    })
+    stream.on('error',(err)=>{
+        console.log(err)
+    })
+
+    stream.on('end',()=>{
+        console.log(employees.length)
+    })
+
+    employeesToSave.forEach(employee=>{
+        stream.write({employee})
+    })
+
+    //cierro la conexión
+    stream.end()
+
+}
+
+function onClientReady(){
+    //getEmployeeByBadgeNumber()
+    //saveEmployee()
+    //getAll()
+    //addPhoto()
+    saveAll()
+}
+~~~
+-----
+
+## Estalecer conexión segura
+
+- Habilitamos la conexion segura en el  server
+
+~~~js
+function main(){
+    const server = getServer()
+
+    const serverCredentials= SSLService.getServerCredentials()
+
+    server.bindAsync(`0.0.0.0:${PORT }`, serverCredentials, (err,port)=>{
+        if(err){
+            console.error(err)
+            return
+        }
+        console.log(`Server running at port ${port}`)
+        
+    })
+}
+~~~
+
+- Creo otro método estático en SSLService
+
+~~~js
+import { ChannelCredentials, ServerCredentials } from "@grpc/grpc-js";
+import *as fs from 'fs'
+import path from 'path'
+
+export class SSLService{
+    static getServerCredentials():ServerCredentials{
+        const serverCert = fs.readFileSync(path.resolve(__dirname,  '../../ssl/server-cert.pem')) //importamos  el certificado
+        const serverKey =  fs.readFileSync(path.resolve(__dirname, '../../ssl/server-key.pem'))  //importamos la clave
+
+        //el primer parámetro es el root del Buffer, lo mandamos como nulo
+        //el segundo es un diccionario de certificados y claves
+        //le  envio false como tercero para que no chequee  el certificado del cliente, eso lo haremos más adelante  
+        return ServerCredentials.createSsl(null,[{cert_chain:serverCert, private_key:serverKey}], false)
+
+
+    }
+
+    static getChannelCredentials(): ChannelCredentials{
+        const rootCert = fs.readFileSync(path.resolve(__dirname, './../ssl/ca-cert.pem'))
+
+        return ChannelCredentials.createSsl(rootCert)
+    }
+}
+~~~
+
+- LLamo el método en el cliente
+
+~~~js
+const channelCredentials= SSLService.getChannelCredentials()
+const client=new grpcObj.employees.IEmployeeService(`0.0.0.0:${PORT}`, channelCredentials)
+~~~

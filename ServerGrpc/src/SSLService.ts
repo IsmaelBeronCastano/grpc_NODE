@@ -1,4 +1,4 @@
-import { ServerCredentials } from "@grpc/grpc-js";
+import { ChannelCredentials, ServerCredentials } from "@grpc/grpc-js";
 import *as fs from 'fs'
 import path from 'path'
 
@@ -13,5 +13,11 @@ export class SSLService{
         return ServerCredentials.createSsl(null,[{cert_chain:serverCert, private_key:serverKey}], false)
 
 
+    }
+
+    static getChannelCredentials(): ChannelCredentials{
+        const rootCert = fs.readFileSync(path.resolve(__dirname, './../ssl/ca-cert.pem'))
+
+        return ChannelCredentials.createSsl(rootCert)
     }
 }

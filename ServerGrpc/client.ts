@@ -4,6 +4,8 @@ import path from 'path'
 import {ProtoGrpcType} from './proto/employees'
 import { Employee } from "./proto/employees/Employee"
 import {Empty} from 'google-protobuf/google/protobuf/empty_pb'
+import fs from 'fs'
+import { SSLService } from "./src/SSLService"
 
 const PORT = 8082
 
@@ -17,7 +19,7 @@ const grpcObj= (grpc.loadPackageDefinition(packageDefinition) as unknown) as Pro
 
 //haremos que el server funcione de momento con las credenciales inseguras
 //lo modifico en server.ts tambien, luego lo cambio
-const channelCredentials= grpc.credentials.createInsecure() //notar que aqui son .credentials no ServerCredentials
+const channelCredentials= SSLService.getChannelCredentials()
 const client=new grpcObj.employees.IEmployeeService(`0.0.0.0:${PORT}`, channelCredentials) //el cliente apunta a la interfaz del servicio.
                                                                                             //dispongo  de todos los métodos
 
@@ -89,8 +91,70 @@ const getAll= ()=>{
     })
 }
 
+const addPhoto =()=>{
+   const stream= client.AddPhoto(()=>{})
+    //con fs vamos a crear un readstream que nospermitirá leer un png, descomponerlo en chunks y enviárselo al server 
+    const fileStream= fs.createReadStream('./badgePhoto.png')
+
+    fileStream.on('data', (chunk)=>{
+        stream.write({data: chunk})
+    })
+
+    fileStream.on('end',  ()=>{
+        stream.end()
+    })
+
+}
+
+const saveAll=()=>{
+    const stream= client.saveAll() //esto crea el canal
+
+    const employeesToSave =[
+        {
+            id: 4,
+            badgeNumber: 2090,
+            firstName: 'Johnee',
+            lastName: 'Scofieldaaa',
+            vacationAccrualRate: 50,
+            vacationAccrued: 120
+        },
+        {
+            id: 5,
+            badgeNumber: 2023,
+            firstName: 'Johneet',
+            lastName: 'Scofieldaaarrr',
+            vacationAccrualRate: 50,
+            vacationAccrued: 120
+        }
+
+    ]
+
+    const employees:Employee []= []
+    stream.on('data',(response)=>{
+        employees.push(response.employee)
+        console.log('employee saved!')
+    })
+    stream.on('error',(err)=>{
+        console.log(err)
+    })
+
+    stream.on('end',()=>{
+        console.log(employees.length)
+    })
+
+    employeesToSave.forEach(employee=>{
+        stream.write({employee})
+    })
+
+    //cierro la conexión
+    stream.end()
+
+}
+
 function onClientReady(){
     //getEmployeeByBadgeNumber()
     //saveEmployee()
-    getAll()
+    //getAll()
+    //addPhoto()
+    saveAll()
 }
