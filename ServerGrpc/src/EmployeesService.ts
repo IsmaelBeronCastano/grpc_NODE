@@ -56,7 +56,6 @@ const  EmployeesService : IEmployeeServiceHandlers={
     Save: function (call: ServerUnaryCall<EmployeeRequest__Output, EmployeeResponse>, callback: sendUnaryData<EmployeeResponse>): void {
         const request = call.request as EmployeeRequest
         
-        
 
         if(request.employee){
             const employee = request.employee

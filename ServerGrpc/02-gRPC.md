@@ -238,4 +238,47 @@ function onClientReady(){
 }
 ~~~
 
-- 
+## Mensajes - Server Streaming
+
+- Construiremos  getAll
+- Si yo poso el cursor encima de getAll puedo ver con la ayuda del IDE que es un grpc.CientReadableStream que nos va a devolver un EmployeeResponse
+
+~~~js
+const getAll= ()=>{
+    client.getAll
+}
+~~~
+
+- Empty es un objeto vacío  que viene de protobuf. Con esto envío un objeto vacío en la petición
+
+~~~js
+import {Empty} from 'google-protobuf/google/protobuf/empty_pb'
+~~~
+
+- El método
+
+~~~js
+const getAll= ()=>{
+    const stream = client.getAll(new Empty()) //este stream nos va a permitir escuchar eventos
+    
+    const employees:Employee[]= []
+
+    stream.on('data', (response)=>{
+        const employee = response.employee
+        employees.push(employee)
+        console.log(`Fetch employeewith badgeNumber ${employee.badgeNumber}`) //cada vez que obtengamos datos se imprimirá
+        //cada chunk de datos será un empleado
+    })
+
+    stream.on('error', (err)=>{
+        //en un entorno de producción aqui se hacen políticas de reintentos, reestablecer la conexión,o usar otros frameworks
+        //como temporal.io para que las ejecuciones que no se completaron de forma exitosa se completen aunque haya habido un error 
+        console.log(err)
+    })
+    stream.on('end', ()=>{
+        console.log(`${employees.length} total employees`)
+    })
+}
+~~~
+
+## Mensajes - Client Streaming 
