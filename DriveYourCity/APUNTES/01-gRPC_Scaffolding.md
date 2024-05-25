@@ -165,3 +165,4 @@ listen stats
 - En localhost:8081 puedo vere el balanceador de carga
 - En localhost:8080 tengo la UI de cockroachDB
   - Tiene las DB defaultdb, postgres y system que trae por defecto
+  
