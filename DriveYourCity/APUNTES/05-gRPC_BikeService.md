@@ -186,8 +186,29 @@ export {
 ~~~
 
 - Encapsula y divide muy bien las responsabilidades
-- Vayamos con el BikeService
+- Usaré este cliente para comunicarme con dock-microservice desde bike-microservice
+- Entonces lo que he hecho es **crear un cliente en bike-microservice que se conecte al puerto de dock-microservice con una nueva instancia de DockService, e implementar el código con el cliente para interactuar con el servicio** 
+- Vayamos con el BikeService. Dónde está?
+  - En src/proto/DriveYourCity/IBikeService
+  - Contiene todas las definiciones. la que nos interesa es **IBikeServiceHandlers**
+- Quiero explicar este código:
 
+~~~js
+[name: string]: import("@grpc/grpc-js").UntypedHandleCall;
+~~~
+- **[name: string]**:
+  - Esto es una sintaxis de TypeScript para definir un índice de propiedad en una interfaz. Significa que cualquier propiedad del objeto puede tener un nombre de tipo string.
+- **import("@grpc/grpc-js").UntypedHandleCall**:
+    - Esto se refiere a un tipo que está siendo importado desde el módulo @grpc/grpc-js. En este caso, UntypedHandleCall es un tipo exportado por este módulo.
+- **import("@grpc/grpc-js")** es la forma de importar tipos o valores desde un módulo externo en TypeScript sin necesidad de hacer una importación explícita en la parte superior del archivo.
+- Creo una instancia de new CockroachDBBikePersistence()
+- Para el attach de la bici al dock abro un try catch (como en los casos anteriores)
+- extraigo las propiedades del body con call.request.propiedad
+- Si tengo bikeId y dockId uso el dockClient para ver si el dock esta disponible y uso la instancia de la db de bike (bikePersistence) para obtener la bici por id
+- Si no hay dock mando un error con el callback
+- Si el dock de la bici es distinto de null es que ya está ligada a un dock
+- Y si no usamos updatedBike, le paso el id, actualizo el total de km de la bici y le indico el id del dock
+- Si no es ninguno de estos casos lanzo un custom error de invalid arguments y en el catch recojo el error no manejado (de haberlo)
 ~~~js
 import { ServerUnaryCall, handleUnaryCall, sendUnaryData } from "@grpc/grpc-js";
 import { Status } from "@grpc/grpc-js/build/src/constants";
@@ -204,7 +225,7 @@ import { UnAttachBikeFromDockRequest__Output } from "../proto/DriveYourCity/UnAt
 const bikePersistence = new CockroachDBBikePersistence();
 class BikeService implements IBikeServiceHandlers {
 
-    [name: string]: import("@grpc/grpc-js").UntypedHandleCall;
+    [name: string]: import("@grpc/grpc-js").UntypedHandleCall; //explicación de este código arriba!
     
     async AttachBikeToDock(call: ServerUnaryCall<AttachBikeToDockRequest__Output, BikeResponse>, callback: sendUnaryData<BikeResponse>): Promise<void> {
         try {
@@ -266,16 +287,16 @@ class BikeService implements IBikeServiceHandlers {
 
     async GetBikeById(call: ServerUnaryCall<GetBikeByIdRequest__Output, BikeResponse>, callback: sendUnaryData<BikeResponse>): Promise<void> {
         try {
-            const bikeId = call.request.bikeId;
+            const bikeId = call.request.bikeId; //extraigo el id de la request
             console.log('GetBikeById', { bikeId });
             if (bikeId) {            
-                const bike = await bikePersistence.getBikeById(bikeId);                
-                const error = bike ? null : NotFoundError('bike', bikeId);
-                callback(error, { bike });
+                const bike = await bikePersistence.getBikeById(bikeId); //uso el método               
+                const error = bike ? null : NotFoundError('bike', bikeId); //si hay bike el error es null, si no mando el custom error
+                callback(error, { bike }); //retorno con el callback el error y la bike
             }
-        callback(InvalidArgumentError(['dockId']), { bike: undefined });
+        callback(InvalidArgumentError(['dockId']), { bike: undefined }); //si no es ninguno de esos casos es que el argumento no es válido
         } catch (err) {
-            callback(InternalError(err as string), { bike: undefined });
+            callback(InternalError(err as string), { bike: undefined });// si hay un error lo capturo con el catch
         }        
     }
 }
@@ -284,3 +305,56 @@ export {
     BikeService
 }
 ~~~
+
+- Creo el server.ts
+
+~~~js
+// @ts-ignore
+import path from 'path'
+import * as grpc from '@grpc/grpc-js'
+import * as protoLoader from '@grpc/proto-loader'
+import { ProtoGrpcType } from './src/proto/Bike';
+import { BikeService } from './src/service/BikeService';
+
+const PORT = 9082;
+const BIKE_PROTO_FILE = './../proto/Bike.proto';
+
+const bikePackageDef = protoLoader.loadSync(path.resolve(__dirname, BIKE_PROTO_FILE));
+const bikeGrpcObj = (grpc.loadPackageDefinition(bikePackageDef) as unknown) as ProtoGrpcType;
+
+function main() {
+    const server = getServer();    
+    const serverCredentials = grpc.ServerCredentials.createInsecure();
+
+    server.bindAsync(`0.0.0.0:${PORT}`, serverCredentials,
+        (err, port) => {
+            if (err) {
+                console.error(err)
+                return
+            }
+            console.log(`ride server as started on port ${port}`)
+            server.start()
+        })
+}
+
+function getServer() {
+    const server = new grpc.Server();
+
+    server.addService(bikeGrpcObj.DriveYourCity.IBikeService.service, new BikeService())
+
+    return server
+}
+
+main()
+~~~
+
+- Creo el .env
+
+~~~
+DATABASE_URL="postgresql://root@localhost:26000/driveyourcity?sslmode=disable"
+~~~
+
+- Debemos iniciar los dos servers, el de dock y el de bike
+- En POSTMAN uso createBike y le paso un objeto con id:1, dock: {}
+- Para añadir la bici al dock mando en el objeto el dockId, el bikeId, y el totalkm
+- Si intento asociar la misma bici me salta error de que la bici con id tal ya está asociada al dock con id tal
